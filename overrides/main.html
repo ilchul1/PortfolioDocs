@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+
+{% block extrahead %}
+  {# 검색엔진 인덱싱 차단 — 사실상 비공개 운영 #}
+  <meta name="robots" content="noindex,nofollow,noarchive,nosnippet,noimageindex">
+  <meta name="googlebot" content="noindex,nofollow">
+  <meta name="bingbot" content="noindex,nofollow">
+{% endblock %}

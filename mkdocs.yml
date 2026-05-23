@@ -1,0 +1,96 @@
+# Portfolio — UE 액션 RPG 기술 문서 (MkDocs Material 사이트)
+#
+# 로컬 미리보기: cd Docs/site-src && mkdocs serve
+# 빌드:          mkdocs build  (출력: site/)
+# Pages 배포:    mkdocs gh-deploy --force
+
+site_name: Portfolio — UE 액션 RPG 기술 문서
+site_description: Unreal Engine 5.7.4 기반 싱글 액션 RPG의 시스템 설계 문서
+site_author: JungYoHan
+site_url: https://ilchul1.github.io/PortfolioDocs/
+docs_dir: docs
+
+theme:
+  name: material
+  language: ko
+  custom_dir: overrides
+  features:
+    - navigation.top
+    - navigation.tracking
+    - navigation.sections
+    - navigation.expand
+    - toc.follow
+    - search.highlight
+    - search.share
+    - search.suggest
+    - content.code.copy
+    - content.tabs.link
+    - content.action.edit
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: 다크 모드로 전환
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: 라이트 모드로 전환
+  # 폰트는 extra.css에서 Pretendard CDN으로 로드 (Google Fonts 미존재)
+  font: false
+  icon:
+    logo: material/sword
+
+extra:
+  generator: false
+  social: []
+
+plugins:
+  - search:
+      lang:
+        - ko
+        - en
+  # 외부 링크는 docs/javascripts/extra.js에서 JS로 새 탭 처리 (가장 안정적)
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      toc_depth: 4
+  - pymdownx.betterem
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+
+extra_css:
+  - stylesheets/extra.css
+
+extra_javascript:
+  - javascripts/extra.js
+
+# 단일 페이지 — nav 생략 시 mkdocs가 index.md 자동 사용
+nav:
+  - 기술 문서: index.md

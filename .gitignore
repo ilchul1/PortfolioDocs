@@ -1,0 +1,11 @@
+# MkDocs 빌드 출력
+site/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# OS
+.DS_Store
+Thumbs.db

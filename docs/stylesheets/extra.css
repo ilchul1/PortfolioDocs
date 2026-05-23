@@ -1,0 +1,83 @@
+/* ============================================================
+   Portfolio 기술 문서 — 커스텀 스타일
+   ------------------------------------------------------------
+   - Pretendard 폰트 적용 (한국 IT 표준)
+   - 본문 폭 확장 (대형 모니터 대응)
+   - 사이드바 균형 조정
+   ============================================================ */
+
+/* Pretendard 가변 폰트 CDN */
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css");
+
+:root {
+  --md-text-font: "Pretendard Variable", "Pretendard", -apple-system, BlinkMacSystemFont, system-ui, "Helvetica Neue", Arial, sans-serif;
+  --md-code-font: "JetBrains Mono", "D2Coding", Consolas, Monaco, "Courier New", monospace;
+}
+
+/* 본문 + 사이드바 컨테이너 폭 확장 */
+.md-grid {
+  max-width: 1700px;
+}
+
+/* 단일 페이지라 좌측 네비는 사실상 비어 있어 폭만 0으로 줄여 숨김.
+   그리드 구조를 유지하므로 본문이 자연스럽게 좌측으로 밀착되고,
+   컨테이너 max-width(1700px)가 화면에서 좌우 여백을 균등하게 잡아줌. */
+@media screen and (min-width: 76.25em) {
+  .md-sidebar--primary {
+    width: 0;
+    min-width: 0;
+    visibility: hidden;
+    overflow: hidden;
+  }
+  .md-sidebar--secondary {
+    width: 14rem;        /* 우측 TOC */
+  }
+}
+
+/* 본문 가독성 폭 — 너무 넓어지면 줄이 길어 읽기 불편하므로 76rem 정도가 적정 */
+.md-content {
+  max-width: none;
+}
+
+.md-content__inner {
+  margin: 0 1rem 1.2rem;
+  padding-top: 0.6rem;
+}
+
+/* 표가 길어질 때 가로 스크롤이 잘 동작하도록 */
+.md-typeset table:not([class]) {
+  display: table;
+  width: 100%;
+}
+
+/* 본문 폰트 사이즈 살짝 키움 (한글 가독성) */
+.md-typeset {
+  font-size: 0.78rem;
+  line-height: 1.65;
+}
+
+/* 코드 블록 폰트 살짝 줄임 (모노스페이스가 두꺼워 보이는 보정) */
+.md-typeset code,
+.md-typeset pre {
+  font-size: 0.75em;
+}
+
+/* 본문 헤딩 간격을 좀 더 시원하게 */
+.md-typeset h1 {
+  margin-top: 1.2em;
+  font-weight: 700;
+}
+.md-typeset h2 {
+  margin-top: 2em;
+  border-bottom: 1px solid var(--md-default-fg-color--lightest);
+  padding-bottom: 0.3em;
+}
+.md-typeset h3 {
+  margin-top: 1.6em;
+}
+
+/* 인용 블록 (>) 톤 부드럽게 */
+.md-typeset blockquote {
+  color: var(--md-default-fg-color--light);
+  border-left: 4px solid var(--md-accent-fg-color);
+}
