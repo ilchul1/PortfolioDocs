@@ -3,7 +3,8 @@
 > **프로젝트**: 싱글 액션 RPG (Dark Souls / Elden Ring 스타일)  
 > **엔진**: Unreal Engine 5.7.4  
 > **규모**: C++ 소스 685파일, 20+ 독립 시스템  
-> **개발**: 1인 개발 (설계, 구현, 디버깅 전체)
+> **개발**: 1인 개발 (설계, 구현, 디버깅 전체)  
+> **주요 활용**: GAS · StateTree · EQS · Motion Matching · Motion Warping · Enhanced Input · MVVM · Subsystems · Control Rig · Animation Modifier
 
 ---
 
