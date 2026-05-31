@@ -2318,7 +2318,7 @@ GameplayEffect Component, StateTree Schema, FInstancedStruct, MVVM FieldNotify �
 </span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>  ├─ ExecutionHit 이벤트 발생  ──────→  대량 데미지 수신
 </span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>  └─ 처형 완료                         처형 완료 or 사망
 </span></code></pre></div>
-<p>피해자 어빌리티가 독립적이기 때문에, 피해자의 면역/방어 체계가 정상적으로 동작합니다. 슈퍼아머로 처형을 탈출하는 것도 가능합니다.</p>
+<p>피해자도 단순 대상이 아니라 자신의 어빌리티(<code>ExecutionVictim</code>)를 실행하므로, 처형의 성립과 종료가 피해자 측 규칙을 따릅니다. 공중·사망·리스폰 상태에서는 피해자 어빌리티가 활성화되지 않아 처형이 시작되지 않고, 처형 도중에는 피해자에게 슈퍼아머가 부여되어 연출이 다른 공격에 끊기지 않으며, 종료 시 사망/기상 전환도 피해자 어빌리티의 생애주기에서 처리됩니다.</p>
 <blockquote>
 <p>[첨부-C9] <strong>플레이 영상</strong>: 가드 중 연속 피격으로 스태미나가 0이 되면 가드 브레이크가 발생하고, 그로기 리액션으로 전환되는 흐름을 보여줍니다.</p>
 </blockquote>
