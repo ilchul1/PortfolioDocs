@@ -12,9 +12,9 @@
 
 이 문서는 기능 목록보다 **전투 중심 액션 RPG를 유지보수 가능한 시스템으로 구성한 방식**을 설명합니다. 핵심은 공격/AI/히트/애니메이션을 각각 독립된 기능으로 끝내지 않고, DataAsset, GameplayTag, GAS, StateTree, AnimNotify가 같은 규칙 안에서 맞물리도록 설계한 점입니다.
 
-### 핵심 어필 요약
+### 핵심 설계 요약
 
-| 포인트 | 어필 내용 | 본문 위치 |
+| 포인트 | 핵심 내용 | 본문 위치 |
 |:---|:---|:---|
 | Data-driven 전투 어빌리티 | 공격 타입 증가를 C++ 클래스 증가가 아니라 DataAsset + Feature 조합으로 처리 | 섹션 1 |
 | StateTree 기반 몬스터 AI | 공격 선택, 실행 타이밍, 다수 몬스터 동시 공격 제한을 분리하고 Schema로 Task의 게임 의존을 끊음 | 섹션 2 |
@@ -68,7 +68,7 @@ GameplayEffect Component, StateTree Schema, FInstancedStruct, MVVM FieldNotify �
 | | Attack | ComboAttack |
 |:---|:---|:---|
 | 입력 | 단일 실행 | Light/Heavy 분기 버퍼링 |
-| 데이터 | `UPTAbilityActionAsset` 1개 | `TMap<InputTag, UPTComboAbilityActionAsset>` 링크드 리스트 |
+| 데이터 | `UPTAbilityActionAsset` 1개 | InputTag→시작 노드 맵 + 노드별 Next 링크 |
 | 용도 | 몬스터 개별 공격, 특수 공격 | 플레이어 콤보, 몬스터 연속 공격 |
 | 주요 로직 | ActivateAbility → PerformCombatAction → 끝 | 입력 버퍼 → Branch 이벤트 → ExecuteNextCombo → 반복 |
 
@@ -297,9 +297,9 @@ ScoreModifier는 4종을 구현했습니다:
 | Decision 타입 | 동작 | 실제 게임 효과 |
 |:---|:---|:---|
 | **Commit** | 즉시 실행 | 단순 공격 |
-| **Hesitate** | 확률 기반 딜레이(기본 0.5~1.0초, 데이터로 조정) 후 실행 | "생각하는 듯한" 자연스러운 AI |
+| **Hesitate** | 확률(기본 0.3)로 발동을 0.5~1.0초 지연 후 실행 | "생각하는 듯한" 자연스러운 AI |
 | **Patience** | 타겟/소유자 조건이 유지되는 동안 최대 시간까지 대기 | 불리한 타이밍을 넘긴 뒤 실행 |
-| **Abort** | 타겟이 무적/패링 상태면 공격 취소 | 불합리한 공격 방지 |
+| **Abort** | 타겟이 지정 태그(예: 무적/패링)를 가지면 공격 취소 | 불합리한 공격 방지 |
 
 이 4종이 점수 경쟁을 하고, 매 틱 가장 높은 점수의 Decision이 실행 여부를 결정합니다. 상황이 바뀌면 Decision도 바뀝니다. 매 틱 `CalculateScore`로 각 Decision의 점수를 산출하고, 최고점 Decision의 `OnEnter`/`OnTick`을 실행합니다. Abort가 10, Patience가 5, Hesitate와 Commit이 1처럼 우선순위를 데이터에 박아두면, "무적/패링이면 즉시 취소 → 그게 아니면 잠깐 대기 → 둘 다 아니면 그냥 실행" 같은 분기를 if 문 없이 점수만으로 표현할 수 있습니다.
 
@@ -319,7 +319,7 @@ Patience가 이기면 몬스터는 설정된 태그가 사라지거나 최대 �
 
 다수 몬스터가 동시에 플레이어를 공격하면 회피할 수 없는 상황이 만들어집니다.
 
-`PTAttackTokenSubsystem`이 타겟당 토큰 풀을 관리합니다. 몬스터는 공격 전에 토큰을 요청하고, 풀이 비어 있으면 공격을 보류합니다. 공격이 끝나면 토큰을 반환합니다.
+`PTAttackTokenSubsystem`이 타겟당 토큰 풀을 관리합니다. 몬스터는 공격 전에 토큰을 요청하고, 풀이 비어 있으면 요청이 거부됩니다(거부 사유를 함께 전달). 공격이 끝나면 토큰을 반환합니다.
 
 ```
 [토큰 풀: 3개]
@@ -329,7 +329,7 @@ Patience가 이기면 몬스터는 설정된 태그가 사라지거나 최대 �
 몬스터 D: 토큰 부족 → 대기 (Backoff 이동)
 ```
 
-토큰이 없는 몬스터들은 Orbit(측면 이동)이나 Backoff(후퇴)로 자연스럽게 주변을 맴돕니다.
+토큰을 받지 못한 몬스터는 StateTree에서 Orbit(측면 이동)이나 Backoff(후퇴)로 분기해 자연스럽게 주변을 맴돕니다.
 
 타겟별 풀과 보유자 맵을 모두 `TWeakObjectPtr` 기반으로 보관하고, 주기적으로 무효 참조를 제거합니다. 타겟이나 요청자가 소멸된 뒤에도 풀이 누적되지 않도록 한 부분으로, 다수 몬스터 전투에서 토큰이 회수되지 않는 잠재 결함을 막기 위한 처리입니다. PressureSlot도 동일한 정리 메커니즘을 따릅니다.
 
@@ -405,8 +405,9 @@ Steps = Clamp(Distance / StepDensity, 1, MaxSteps)
 커스텀 `UPTDamageCalculation`(GameplayEffect Execution Calculation)으로 처리합니다.
 
 ```
-DefenseRate = AttackPower / (AttackPower + DefensePower)
-FinalDamage = BaseDamage × DamageMultiplier × DefenseRate × OutgoingMultiplier
+BaseDamage   = AttackPower × DamageMultiplier
+DefenseRate  = AttackPower / (AttackPower + DefensePower)
+FinalDamage  = BaseDamage × DefenseRate × (1 + OutgoingDamageMultiplier)   // 최소 1 보장
 ```
 
 **왜 이 공식인가**: 단순 빼기(`Attack - Defense`)는 방어력이 높아지면 데미지가 0이 되고, 단순 나누기(`Attack / Defense`)는 방어력이 낮을 때 데미지가 폭증합니다. 비율 공식은 방어력이 높을수록 효과가 줄어들되, 데미지가 쉽게 0으로 떨어지지 않습니다. 다크소울 시리즈가 사용하는 방식과 유사합니다.
@@ -439,7 +440,7 @@ FinalDamage = BaseDamage × DamageMultiplier × DefenseRate × OutgoingMultiplie
               └─ StanceBroken  → 체간 파괴 → 처형 기회
 ```
 
-이 라우팅이 GE Component 안에서 일어나기 때문에, 어빌리티 코드에서는 리액션 분기를 다루지 않습니다. Feature에 HitReaction 타입만 설정하면, 나머지는 파이프라인이 처리합니다.
+GE Component는 EffectContext를 보고 가드/직격 분기까지 라우팅해 해당 리액션 이벤트를 발행하고, GuardImpact의 Weak/Strong/Broken 단계나 직격 시 이상상태의 구체 타입은 활성화된 하위 어빌리티가 결정합니다. 덕분에 상위 어빌리티 코드에서는 리액션 분기를 직접 다루지 않고, Feature의 HitReaction 타입 설정과 파이프라인이 나머지를 처리합니다.
 
 ### 3-4. 방향성 리액션
 
@@ -447,7 +448,7 @@ FinalDamage = BaseDamage × DamageMultiplier × DefenseRate × OutgoingMultiplie
 
 ```cpp
 FGameplayTag DirectionTag = CalculateDirectionTag(AttackerLocation, VictimRotation);
-// → PTTag::HitDirection::Front / Back / Left / Right
+// → PTTag::HitDirection::Forward / Backward / Left / Right
 ```
 
 > [첨부-C3] **플레이 영상**: 몬스터의 전/후/좌/우 위치에서 시간차를 두고 Stagger(강공격 피격 리액션)를 재생해, 피격 방향에 따라 다른 리액션 몽타주가 선택되는 것을 보여줍니다.
@@ -472,7 +473,7 @@ UPTGameplayAbility_HitReactionBase
       └── AbnormalStanceBroken   — 체간 파괴 → 처형 가능
 ```
 
-Groggy는 **2페이즈** 구조입니다. 기절 몽타주 재생 후 자동으로 기상 몽타주로 전환됩니다. 기절 중에는 추가 공격에 취약합니다. Knockdown은 기상 중 슈퍼아머가 적용되어 무한 연속 넉다운을 방지합니다. Knockdown 어빌리티는 `UPhysicalAnimationComponent`와 결합되어, 넘어지는 순간의 충격은 물리로 표현하고 기상 페이즈는 몽타주가 주도하도록 부분 물리/애니메이션 블렌딩을 사용합니다.
+Groggy는 **2페이즈** 구조입니다. 기절 몽타주 재생 후 자동으로 기상 몽타주로 전환됩니다. 기절 중에는 추가 공격에 취약합니다. Knockdown은 넘어진 뒤 기상(GetUp) 어빌리티로 전환되며, 기상 어빌리티가 슈퍼아머를 부여해 무한 연속 넉다운을 방지합니다.
 
 ### 3-6. 가드 / 패링 / 처형
 
@@ -565,7 +566,7 @@ Stance는 마지막 피격 후 `StanceRecoveryDelay`(기본 5초) 이후에 자�
 
 ### 모션 워핑 & 타겟 트래킹
 
-전투 중 위치 보정은 엔진의 `URootMotionModifier_SkewWarp`를 기반으로 한 `PTRootMotionModifier_CombatWarp`로 처리합니다. 커스텀 클래스는 워프 타깃 이름(`CombatWarpingName`), 회전/이동 워프 옵션, `MaxSpeedClampRatio = 3.0` 같은 전투용 기본값을 한 곳에 모아두는 역할을 하고, 앵커 종류(TargetFront/TargetBack/Relative) 선택과 보간 자체는 SkewWarp의 검증된 구현을 그대로 활용했습니다. 그 위에 `WarpTracking` 어빌리티 태스크가 매 프레임 워프 포인트를 재계산해 이동하는 타겟까지 추적하도록 보강했고, `MaxSpeedClampRatio`로 비현실적 슬라이딩을 방지합니다.
+전투 중 위치 보정은 엔진의 `URootMotionModifier_SkewWarp`를 기반으로 한 `PTRootMotionModifier_CombatWarp`로 처리합니다. 커스텀 클래스는 워프 타깃 이름(`CombatWarpingName`), 회전/이동 워프 옵션, `MaxSpeedClampRatio = 3.0` 같은 전투용 기본값을 한 곳에 모아두고, 앵커 종류(TargetFront/TargetBack/Relative)에 따른 워프 트랜스폼 계산은 어빌리티 쪽 커스텀 로직이 수행합니다. 그 지점까지의 스큐(skew) 보간은 SkewWarp의 검증된 구현을 그대로 활용했습니다. 그 위에 `WarpTracking` 어빌리티 태스크가 매 프레임 워프 포인트를 재계산해 이동하는 타겟까지 추적하도록 보강했고, `MaxSpeedClampRatio`로 비현실적 슬라이딩을 방지합니다.
 
 > [첨부-D1] **플레이 영상**: 같은 공격 애니메이션을 두 번 재생해 비교합니다. 첫 번째 공격은 모션 워핑 미적용 상태라 거리/방향 오차가 남고, 두 번째 공격은 모션 워핑 적용으로 타겟까지의 거리와 방향이 보정됩니다.
 
@@ -593,7 +594,7 @@ Stance는 마지막 피격 후 `StanceRecoveryDelay`(기본 5초) 이후에 자�
 
 상태 그룹마다 `PriorityTags` 배열을 두고, 배열 순서대로 가장 먼저 매칭되는 태그를 채택하는 방식을 썼습니다. 락온 + 슬로우 + 무장 같은 태그가 동시에 활성화되어도 우선순위 순서대로 단 하나의 상태가 확정되기 때문에, 상태 충돌을 if/else로 처리하지 않고 데이터(`UPTMotionMatchingConfig`)만으로 결정 규칙을 표현할 수 있었습니다.
 
-추가로 피벗 감지(가속 방향과 속도 방향의 30° 이상 차이), 이동 시작 감지(미래 속도가 현재 + 100u 이상), 그리고 `PTCharacterTrajectoryComponent`의 다단계 궤적 보정(공중 상태 보정 → 벽 충돌 보정)까지 구현해서 모션 매칭의 약점(벽 앞에서 달리는 모션, 정지 시 미끄러짐, 점프 직후 잘못된 미래 위치)을 보완했습니다. 벽 충돌 보정은 실제 속도가 최대 속도의 일정 비율 이하로 떨어지거나, 입력 방향과 실제 이동 방향의 내적이 임계치 이하가 되면 활성화되어, 입력 의도 방향으로 미래 궤적을 재계산합니다.
+추가로 `PTPlayerAnimInstance`의 피벗 감지(가속 방향과 속도 방향의 30° 이상 차이)·이동 시작 감지(미래 속도가 현재 + 100u 이상), 그리고 `PTCharacterTrajectoryComponent`의 다단계 궤적 보정(벽 충돌 보정 → 공중 상태 보정)까지 구현해서 모션 매칭의 약점(벽 앞에서 달리는 모션, 정지 시 미끄러짐, 점프 직후 잘못된 미래 위치)을 보완했습니다. 벽 충돌 보정은 실제 속도가 최대 속도의 일정 비율 이하로 떨어지거나, 입력 방향과 실제 이동 방향의 내적이 임계치 이하가 되면 활성화되어, 입력 의도 방향으로 미래 궤적을 재계산합니다.
 
 **몬스터: AnimProxy 이벤트 기반 스테이트 머신**
 
@@ -655,13 +656,13 @@ AI가 전투 돌입 결정                       NativeInitializeAnimation()에�
 
 ![플레이어/몬스터 Animation Blueprint 비교](Media/TD_D2b_AnimationABPCompare.png)
 
-**6종의 커스텀 AnimNotify/State**(태그 부여, 게임플레이 이벤트 발행, 어택 트레일, GameplayCue, 루트모션 스케일, 워프 트래킹)로 전투 윈도우를 제어합니다. 콤보·캔슬·무적·트레이스·패링 같은 윈도우는 태그 기반 Notify로 통일해, 새 윈도우를 Notify 클래스 추가 없이 태그만으로 정의합니다. 이 Notify 시스템은 플레이어/몬스터 구분 없이 공통으로 동작합니다.
+**28종의 커스텀 AnimNotify/State**(즉시형 Notify 12종 + 윈도우형 NotifyState 16종)로 전투·연출 타이밍을 제어합니다. 콤보·캔슬·무적·트레이스·패링 같은 윈도우는 `GrantTag` 계열 NotifyState로 루즈 태그를 부여/회수해 통일했고, 사운드·큐·이벤트·래그돌 같은 순간 연출은 즉시형 Notify로 처리합니다. 이 Notify 시스템은 플레이어/몬스터 구분 없이 공통으로 동작합니다.
 
 ---
 
 ## 5. 보조 시스템 및 제작 파이프라인
 
-아래 시스템들은 핵심 전투 루프를 직접 설명하는 장은 아니지만, 프로젝트가 실제 플레이 가능한 형태로 유지되도록 받쳐주는 구조입니다. 제출 문서에서는 본문보다 짧게 다루고, 면접 질문이 들어오면 세부 구현을 설명하는 보조 어필 포인트로 활용합니다.
+아래 시스템들은 핵심 전투 루프를 직접 구성하지는 않지만, 프로젝트가 실제 플레이 가능한 형태로 굴러가도록 받쳐주는 기반 구조입니다. UI 데이터 주입, 사운드스케이프, 서브시스템 분리, 반복 작업을 줄이는 에디터 파이프라인 등 전투 외적인 영역에서도 강결합 회피·데이터 주도·단일 책임이라는 동일한 설계 원칙을 일관되게 적용했습니다.
 
 ### UI — SourceRegistry 자동 주입 + MVVM
 
@@ -691,7 +692,7 @@ ViewModel의 `SetSource()`는 `UObject*` 하나만 받기 때문에, 소스가 P
 
 UE5의 MVVM 플러그인과 FieldNotify를 기반으로, MVVM + FieldNotify + 태그 기반 SourceRegistry + 자동 주입 조합을 UI 전반에 적용했습니다.
 
-8종 ViewModel(PlayerResources, MonsterHealthBar, Compass, LockOnReticle, InteractionPrompt, ItemAcquisition, PlayerQuickSlots, AbilitySystem)이 이 구조 위에서 각각 단일 책임으로 동작합니다. 그중 `PTAbilitySystemViewModel`은 ASC의 어트리뷰트/태그 변화를 FieldNotify로 노출하는 공용 ViewModel로, HP/스태미나/스탠스/락온 같은 위젯이 캐릭터 클래스를 직접 참조하지 않고도 동일한 소스에 바인딩되도록 합니다. 레이아웃은 DataAsset으로 정의하고, UIManagerSubsystem이 위젯 라이프사이클과 5단계 레이어 Z-오더링(HUD/Overlay/Screen/Modal/System)을 관리합니다.
+8종 ViewModel(PlayerResources, MonsterHealthBar, Compass, LockOnReticle, InteractionPrompt, ItemAcquisition, PlayerQuickSlots, AbilitySystem)이 이 구조 위에서 각각 단일 책임으로 동작합니다. 그중 `PTAbilitySystemViewModel`은 ASC의 어트리뷰트/태그 변화를 FieldNotify로 노출하는 공용 베이스 ViewModel로, 플레이어 리소스(HP/스태미나 등)·몬스터 체력바 ViewModel이 이를 상속해 캐릭터 클래스를 직접 참조하지 않고도 같은 소스에 바인딩됩니다. 레이아웃은 DataAsset으로 정의하고, UIManagerSubsystem이 위젯 라이프사이클과 5단계 레이어 Z-오더링(HUD/Overlay/Screen/Modal/System)을 관리합니다.
 
 | 단계 | 책임 |
 |:---|:---|
@@ -726,9 +727,9 @@ Enhanced Input + 0.4초 인풋 버퍼링으로 액션 게임의 반응성을 확
 
 `PortfolioEditor` 모듈에 에디터 작업 효율을 위한 세 가지 커스터마이징을 구현했습니다.
 
-**1. HitReaction 프로퍼티 자동완성**: HitReaction Feature에서 리액션 타입(Stagger, Knockdown 등)을 선택하면, 대응하는 GameplayEffect 클래스가 **자동으로 채워집니다.** 매핑 테이블은 `PTAbilityEditorSettings`에서 관리합니다. 수작업으로 GE 클래스를 찾아 넣을 때 생기는 실수를 줄이기 위해서입니다.
+**1. HitReaction 프로퍼티 자동 채움**: HitReaction Feature에서 리액션 타입(Stagger, Knockdown 등)을 선택하면, 대응하는 GameplayEffect 클래스가 **자동으로 채워집니다.** 매핑 테이블은 `PTAbilityEditorSettings`에서 관리합니다. 수작업으로 GE 클래스를 찾아 넣을 때 생기는 실수를 줄이기 위해서입니다.
 
-**2. GEApplication 기본값 자동 매핑**: Feature 타입(Damage, StaminaCost 등)을 선택하면 해당 타입에 맞는 기본 GE가 자동 설정됩니다.
+**2. GEApplication 기본값 자동 매핑**: Feature 타입(Damage, StaminaCost 등)을 선택하면 해당 타입에 맞는 기본 GE가 (값이 비어 있을 때) 자동 설정됩니다.
 
 **3. Root Motion Filter Modifier**: 애니메이션 임포트 시 루트 모션을 축별로 필터링하는 커스텀 애니메이션 모디파이어입니다. MovingAverage/LockToZero/LockToInitialFrame 3종 모드를 지원하고, X/Y/Z 축과 Roll/Pitch/Yaw를 개별 제어합니다.
 
@@ -752,13 +753,13 @@ Enhanced Input + 0.4초 인풋 버퍼링으로 액션 게임의 반응성을 확
 
 게임플레이가 아니지만 플레이 경험을 좌우하는 두 영역도 같은 원칙(월드 오브젝트가 신호를 보내고, 서브시스템이 결정을 담당)으로 분리했습니다.
 
-`PTSoundscapeVolume`은 레벨에 배치된 트리거 볼륨으로, 오버랩 시 `PTSoundscapeSubsystem`에 자신을 등록만 합니다. 어떤 BGM/Atmos를 어떤 페이드 시간으로 재생할지 결정하는 것은 서브시스템 쪽에서 우선순위와 활성 볼륨 스택을 보고 정합니다. RegionBGM, RegionAtmos, GlobalAtmos 3개 스트림을 분리 관리하기 때문에, 지역 BGM이 바뀌어도 분위기음(빗소리 등)은 끊기지 않게 페이드 처리할 수 있습니다.
+`PTSoundscapeVolume`은 레벨에 배치된 트리거 볼륨으로, 오버랩 시 `PTSoundscapeSubsystem`에 자신을 등록/해제합니다. 서브시스템은 BGM과 Atmos를 별도 스트림으로 분리해 각각 페이드 인/아웃하므로, 지역 BGM이 바뀌어도 분위기음(빗소리 등)은 끊기지 않게 처리할 수 있습니다.
 
 `PTInteractionSubsystem`은 매 틱 후보 컴포넌트들에 대해 거리/각도 가중치로 점수를 매겨 최적의 상호작용 대상을 선택합니다(`AngleScoreWeight = 0.7`, `DistanceScoreWeight = 0.3`이 기본값). "가장 가까운 것"이 아니라 "지금 카메라가 향하는 방향에서 가장 자연스러운 것"이 선택되도록, 점수화를 통해 다목적 상호작용(아이템, 화톳불, NPC 대화)의 선택 직관을 일관되게 유지합니다. `IsTickable()`이 후보 존재 여부로 바뀌도록 해서 빈 월드에서는 틱이 돌지 않습니다.
 
 ### 서브시스템 아키텍처
 
-World 서브시스템 7종, LocalPlayer 서브시스템 12종, GameInstance 서브시스템 1종으로 게임 시스템을 분산 관리합니다. 특히 `BonFireSubsystem`이 소울라이크 코어 루프(체크포인트 → 사망 → 리스폰 → 몬스터 리젠)를 담당합니다. 사운드스케이프, 나침반, HitStop, 아이템 드랍 등 각 서브시스템이 단일 책임을 가지고, `InitializeDependency<>()`로 초기화 순서를 보장합니다. 틱이 필요한 서브시스템은 `IsTickable()` 조건을 둬서 유휴 시 불필요한 틱을 줄였습니다.
+World 서브시스템 7종, LocalPlayer 서브시스템 12종, GameInstance 서브시스템 1종으로 게임 시스템을 분산 관리합니다. 특히 `BonFireSubsystem`이 소울라이크 코어 루프(체크포인트 → 사망 → 리스폰 → 몬스터 리젠)를 담당합니다. 사운드스케이프, 나침반, HitStop, 아이템 드랍 등 각 서브시스템이 단일 책임을 가지며, 서브시스템 간 의존이 필요한 경우(예: UIManager → SourceRegistry)는 `InitializeDependency<>()`로 초기화 순서를 보장합니다. 틱이 필요한 서브시스템은 `IsTickable()` 조건을 둬서 유휴 시 불필요한 틱을 줄였습니다.
 
 ### GameplayTag 중앙화 / 디버그 가시화
 
