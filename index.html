@@ -1776,7 +1776,7 @@
 <blockquote>
 <p><strong>프로젝트</strong>: 싱글 액션 RPG (Dark Souls / Elden Ring 스타일)<br />
 <strong>엔진</strong>: Unreal Engine 5.7.4<br />
-<strong>규모</strong>: C++ 소스 685파일, 20+ 독립 시스템<br />
+<strong>규모</strong>: C++ 소스 757파일, 20+ 독립 시스템<br />
 <strong>개발</strong>: 1인 개발 (설계, 구현, 디버깅 전체)<br />
 <strong>주요 활용</strong>: GAS · StateTree · EQS · Motion Matching · Motion Warping · Enhanced Input · MVVM · Subsystems · Control Rig · Animation Modifier</p>
 </blockquote>
@@ -1918,7 +1918,7 @@ GameplayEffect Component, StateTree Schema, FInstancedStruct, MVVM FieldNotify �
 </table>
 <h4 id="_8">설계 결정<a class="headerlink" href="#_8" title="Permanent link">&para;</a></h4>
 <p>세 번째 방식을 선택했습니다. 핵심 아이디어는 <strong>"어빌리티는 실행 프레임워크만 담당하고, 전투 행동은 Feature 조합으로 결정한다"</strong>입니다.</p>
-<p><code>FPTAbilityFeature</code>를 기반 구조체로 두고, 이를 상속한 17종 이상의 Feature를 만들었습니다(Stamina 계열의 Single/Multi 파생 포함 시 19종). 각 Feature는 하나의 전투 행동 속성을 캡슐화합니다.</p>
+<p><code>FPTAbilityFeature</code>를 기반 구조체로 두고, 이를 상속한 구체 Feature 18종을 만들었습니다(StaminaCost·HitProfile은 각각 Single/Multi로 분기). 각 Feature는 하나의 전투 행동 속성을 캡슐화합니다.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>[AbilityActionData]
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a> ├─ MontageData (재생할 애니메이션)
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a> └─ Features[] (FInstancedStruct 배열)
@@ -2447,7 +2447,7 @@ GameplayEffect Component, StateTree Schema, FInstancedStruct, MVVM FieldNotify �
 <p>[첨부-D2b] <strong>에디터 스크린샷 비교</strong>: 플레이어 ABP의 Motion Matching/PoseSearch 구성과 몬스터 ABP의 StateMachine/ControlRig 구성을 비교합니다. 같은 Base AnimInstance를 공유하면서도 캐릭터 유형에 따라 이동 처리 방식을 다르게 가져간 구조입니다.</p>
 </blockquote>
 <p><img alt="플레이어/몬스터 Animation Blueprint 비교" src="Media/TD_D2b_AnimationABPCompare.png" /></p>
-<p><strong>25종+ 커스텀 AnimNotify</strong>로 전투 윈도우를 제어합니다. 콤보 윈도우, 캔슬 윈도우, 무적 프레임, 트레이스 윈도우, 패링 윈도우를 태그 기반 Notify로 통일했습니다. 이 Notify 시스템은 플레이어/몬스터 구분 없이 공통으로 동작합니다.</p>
+<p><strong>6종의 커스텀 AnimNotify/State</strong>(태그 부여, 게임플레이 이벤트 발행, 어택 트레일, GameplayCue, 루트모션 스케일, 워프 트래킹)로 전투 윈도우를 제어합니다. 콤보·캔슬·무적·트레이스·패링 같은 윈도우는 태그 기반 Notify로 통일해, 새 윈도우를 Notify 클래스 추가 없이 태그만으로 정의합니다. 이 Notify 시스템은 플레이어/몬스터 구분 없이 공통으로 동작합니다.</p>
 <hr />
 <h2 id="5">5. 보조 시스템 및 제작 파이프라인<a class="headerlink" href="#5" title="Permanent link">&para;</a></h2>
 <p>아래 시스템들은 핵심 전투 루프를 직접 설명하는 장은 아니지만, 프로젝트가 실제 플레이 가능한 형태로 유지되도록 받쳐주는 구조입니다. 제출 문서에서는 본문보다 짧게 다루고, 면접 질문이 들어오면 세부 구현을 설명하는 보조 어필 포인트로 활용합니다.</p>
@@ -2535,7 +2535,7 @@ GameplayEffect Component, StateTree Schema, FInstancedStruct, MVVM FieldNotify �
 <p><code>PTSoundscapeVolume</code>은 레벨에 배치된 트리거 볼륨으로, 오버랩 시 <code>PTSoundscapeSubsystem</code>에 자신을 등록만 합니다. 어떤 BGM/Atmos를 어떤 페이드 시간으로 재생할지 결정하는 것은 서브시스템 쪽에서 우선순위와 활성 볼륨 스택을 보고 정합니다. RegionBGM, RegionAtmos, GlobalAtmos 3개 스트림을 분리 관리하기 때문에, 지역 BGM이 바뀌어도 분위기음(빗소리 등)은 끊기지 않게 페이드 처리할 수 있습니다.</p>
 <p><code>PTInteractionSubsystem</code>은 매 틱 후보 컴포넌트들에 대해 거리/각도 가중치로 점수를 매겨 최적의 상호작용 대상을 선택합니다(<code>AngleScoreWeight = 0.7</code>, <code>DistanceScoreWeight = 0.3</code>이 기본값). "가장 가까운 것"이 아니라 "지금 카메라가 향하는 방향에서 가장 자연스러운 것"이 선택되도록, 점수화를 통해 다목적 상호작용(아이템, 화톳불, NPC 대화)의 선택 직관을 일관되게 유지합니다. <code>IsTickable()</code>이 후보 존재 여부로 바뀌도록 해서 빈 월드에서는 틱이 돌지 않습니다.</p>
 <h3 id="_30">서브시스템 아키텍처<a class="headerlink" href="#_30" title="Permanent link">&para;</a></h3>
-<p>World 서브시스템 7종, LocalPlayer 서브시스템 5종, GameInstance 서브시스템 1종으로 게임 시스템을 분산 관리합니다. 특히 <code>BonFireSubsystem</code>이 소울라이크 코어 루프(체크포인트 → 사망 → 리스폰 → 몬스터 리젠)를 담당합니다. 사운드스케이프, 나침반, HitStop, 아이템 드랍 등 각 서브시스템이 단일 책임을 가지고, <code>InitializeDependency&lt;&gt;()</code>로 초기화 순서를 보장합니다. 틱이 필요한 서브시스템은 <code>IsTickable()</code> 조건을 둬서 유휴 시 불필요한 틱을 줄였습니다.</p>
+<p>World 서브시스템 7종, LocalPlayer 서브시스템 12종, GameInstance 서브시스템 1종으로 게임 시스템을 분산 관리합니다. 특히 <code>BonFireSubsystem</code>이 소울라이크 코어 루프(체크포인트 → 사망 → 리스폰 → 몬스터 리젠)를 담당합니다. 사운드스케이프, 나침반, HitStop, 아이템 드랍 등 각 서브시스템이 단일 책임을 가지고, <code>InitializeDependency&lt;&gt;()</code>로 초기화 순서를 보장합니다. 틱이 필요한 서브시스템은 <code>IsTickable()</code> 조건을 둬서 유휴 시 불필요한 틱을 줄였습니다.</p>
 <h3 id="gameplaytag">GameplayTag 중앙화 / 디버그 가시화<a class="headerlink" href="#gameplaytag" title="Permanent link">&para;</a></h3>
 <p>게임 전역에서 사용하는 태그는 <code>Ability</code>, <code>State</code>, <code>Event</code>, <code>Animation</code>, <code>Input</code>, <code>FX</code>, <code>GameplayCue</code>, <code>Noise</code>, <code>BonFire</code>, <code>UI</code>, <code>Common</code> 11개 카테고리 헤더에 <code>UE_DECLARE_GAMEPLAY_TAG_EXTERN</code>으로 모아두었습니다. 문자열 리터럴 대신 컴파일 타임에 검증되는 상수 핸들로만 태그를 사용하기 때문에, 태그 오타로 인한 런타임 무반응 버그가 원천적으로 차단됩니다.</p>
 <p>또한 <code>PTCollisionDebug</code>, <code>PTExecutionDebugComponent</code>, <code>PTInputDebugOverlayComponent</code> 등 디버그 시각화는 <code>#if !UE_BUILD_SHIPPING</code>으로 격리해, 출하 빌드에는 코드 자체가 포함되지 않습니다. 트레이스 박스, 처형 판정 범위, 입력 버퍼 상태 같은 시스템 내부를 토글 하나로 화면 위에서 확인할 수 있어, 위에서 다룬 AttackTrace/Execution/InputBuffering 영상도 모두 이 가시화 위에서 촬영했습니다.</p>
