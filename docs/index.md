@@ -2,7 +2,7 @@
 
 > **프로젝트**: 싱글 액션 RPG (Dark Souls / Elden Ring 스타일)  
 > **엔진**: Unreal Engine 5.7.4  
-> **규모**: C++ 소스 685파일, 20+ 독립 시스템  
+> **규모**: C++ 소스 757파일, 20+ 독립 시스템  
 > **개발**: 1인 개발 (설계, 구현, 디버깅 전체)  
 > **주요 활용**: GAS · StateTree · EQS · Motion Matching · Motion Warping · Enhanced Input · MVVM · Subsystems · Control Rig · Animation Modifier
 
@@ -103,7 +103,7 @@ Attack_SwordCombo1, Attack_SwordCombo2, Attack_SwordCombo3...
 
 세 번째 방식을 선택했습니다. 핵심 아이디어는 **"어빌리티는 실행 프레임워크만 담당하고, 전투 행동은 Feature 조합으로 결정한다"**입니다.
 
-`FPTAbilityFeature`를 기반 구조체로 두고, 이를 상속한 17종 이상의 Feature를 만들었습니다(Stamina 계열의 Single/Multi 파생 포함 시 19종). 각 Feature는 하나의 전투 행동 속성을 캡슐화합니다.
+`FPTAbilityFeature`를 기반 구조체로 두고, 이를 상속한 구체 Feature 18종을 만들었습니다(StaminaCost·HitProfile은 각각 Single/Multi로 분기). 각 Feature는 하나의 전투 행동 속성을 캡슐화합니다.
 
 ```
 [AbilityActionData]
@@ -655,7 +655,7 @@ AI가 전투 돌입 결정                       NativeInitializeAnimation()에�
 
 ![플레이어/몬스터 Animation Blueprint 비교](Media/TD_D2b_AnimationABPCompare.png)
 
-**25종+ 커스텀 AnimNotify**로 전투 윈도우를 제어합니다. 콤보 윈도우, 캔슬 윈도우, 무적 프레임, 트레이스 윈도우, 패링 윈도우를 태그 기반 Notify로 통일했습니다. 이 Notify 시스템은 플레이어/몬스터 구분 없이 공통으로 동작합니다.
+**6종의 커스텀 AnimNotify/State**(태그 부여, 게임플레이 이벤트 발행, 어택 트레일, GameplayCue, 루트모션 스케일, 워프 트래킹)로 전투 윈도우를 제어합니다. 콤보·캔슬·무적·트레이스·패링 같은 윈도우는 태그 기반 Notify로 통일해, 새 윈도우를 Notify 클래스 추가 없이 태그만으로 정의합니다. 이 Notify 시스템은 플레이어/몬스터 구분 없이 공통으로 동작합니다.
 
 ---
 
@@ -758,7 +758,7 @@ Enhanced Input + 0.4초 인풋 버퍼링으로 액션 게임의 반응성을 확
 
 ### 서브시스템 아키텍처
 
-World 서브시스템 7종, LocalPlayer 서브시스템 5종, GameInstance 서브시스템 1종으로 게임 시스템을 분산 관리합니다. 특히 `BonFireSubsystem`이 소울라이크 코어 루프(체크포인트 → 사망 → 리스폰 → 몬스터 리젠)를 담당합니다. 사운드스케이프, 나침반, HitStop, 아이템 드랍 등 각 서브시스템이 단일 책임을 가지고, `InitializeDependency<>()`로 초기화 순서를 보장합니다. 틱이 필요한 서브시스템은 `IsTickable()` 조건을 둬서 유휴 시 불필요한 틱을 줄였습니다.
+World 서브시스템 7종, LocalPlayer 서브시스템 12종, GameInstance 서브시스템 1종으로 게임 시스템을 분산 관리합니다. 특히 `BonFireSubsystem`이 소울라이크 코어 루프(체크포인트 → 사망 → 리스폰 → 몬스터 리젠)를 담당합니다. 사운드스케이프, 나침반, HitStop, 아이템 드랍 등 각 서브시스템이 단일 책임을 가지고, `InitializeDependency<>()`로 초기화 순서를 보장합니다. 틱이 필요한 서브시스템은 `IsTickable()` 조건을 둬서 유휴 시 불필요한 틱을 줄였습니다.
 
 ### GameplayTag 중앙화 / 디버그 가시화
 
